@@ -10,10 +10,10 @@ params2=$2
 params3=$3
 params4=$4
 
-focus_duration=${focus_duration:-${params1:-45}}
-break_duration=${break_duration:-${params2:-10}}
-long_break_duration=${long_break_duration:-${params3:-20}}
-breaks_until_long=${breaks_until_long:-${params4:-3}}
+focus_duration=${params1:-${focus_duration:-45}}
+break_duration=${params2:-${break_duration:-10}}
+long_break_duration=${params3:-${long_break_duration:-20}}
+breaks_until_long=${params4:-${breaks_until_long:-3}}
 notify_audio_loop=${notify_audio_loop:-1}
 
 echo "focus_duration: $focus_duration min"
