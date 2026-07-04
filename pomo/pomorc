@@ -1,0 +1,6 @@
+focus_duration=1
+break_duration=1
+long_break_duration=1
+breaks_until_long=2
+notify_audio_loop=2
+phone_vibrating=0
