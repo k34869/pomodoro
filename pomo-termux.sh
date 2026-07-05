@@ -5,66 +5,60 @@ if [[ -f "$HOME/.config/pomo/pomorc" ]]; then
   source "$HOME/.config/pomo/pomorc"
 fi
 
-params1=$1
-params2=$2
-params3=$3
-params4=$4
+set -eo pipefail
 
-focus_duration=${params1:-${focus_duration:-45}}
-break_duration=${params2:-${break_duration:-10}}
-long_break_duration=${params3:-${long_break_duration:-20}}
-breaks_until_long=${params4:-${breaks_until_long:-3}}
+EXIT_PID=$$
+focus_duration=${1:-${focus_duration:-45}}
+break_duration=${2:-${break_duration:-10}}
+long_break_duration=${3:-${long_break_duration:-20}}
+breaks_until_long=${4:-${breaks_until_long:-3}}
 notify_audio_loop=${notify_audio_loop:-1}
+extend_command=${5:-$extend_command}
 
-echo "focus_duration: $focus_duration min"
-echo "break_duration: $break_duration min"
-echo "long_break_duration: $long_break_duration min"
+echo "Focus duration: $focus_duration min"
+echo "Break duration: $break_duration min"
+echo "Long break duration: $long_break_duration min"
+echo "It is expected to be at $(date -d "+$(( (focus_duration + break_duration) * breaks_until_long + long_break_duration )) minutes" +"%p %I:%M")"
 
-expected_time=`date -d "+$(( (focus_duration + break_duration) * breaks_until_long + long_break_duration )) minutes" +"%p %I:%M"`
-echo "It is expected to be at $expected_time"
-for lu in $(seq 1 $breaks_until_long); do
-  echo -ne " 🔔 until: $lu/$breaks_until_long, focus: 0:0 \033[K\r"
+if [[ ! $extend_command =~ ^[[:space:]]*$ ]]; then
+  echo "Execute extend command: $extend_command"
+  eval "$extend_command &" &> /dev/null
+  EXIT_PID=$!
+fi
+
+write_nodone_log() {
+  echo "$(date +%Y%m%d%H%M):$focus_duration:$break_duration:$breaks_until_long:NO" >> $HOME/.pomo.log
+}
+
+# $1 duration, $2 text, $3 emoji, $4 current_breaks_until_long
+timer() {
+  local reduration=0$1
+  echo -ne " 🔔 until: $4/$breaks_until_long, $2: ${reduration: -2}:00 \033[K\r"
   for i in $(seq 1 $notify_audio_loop); do
-    if [[ $phone_vibrating == "0" ]]; then
-      termux-vibrate -f -d 500 &
-    fi
-    mpv "$HOME/.config/pomo/media/focus.mp3" --really-quiet
+    termux-vibrate -f -d 500 &
+    mpv "$HOME/.config/pomo/media/$2.mp3" --no-video --really-quiet
   done
-  for fd in $(seq 0 $((focus_duration - 1))); do
-    for ss in $(seq 0 59); do
+  for d in $(seq 1 $1); do
+    for ss in {0..59}; do
       sleep 1
-      echo -ne " 🍅 until: $lu/$breaks_until_long, focus: $fd:$ss \033[K\r"
+      local remin=0$(($1 - d))
+      local ress=0$((59 - ss))
+      echo -ne " $3 until: $4/$breaks_until_long, $2: ${remin: -2}:${ress: -2} \033[K\r"
     done
   done
+}
+
+trap write_nodone_log SIGINT
+
+for lu in $(seq 1 $breaks_until_long); do
+  timer $focus_duration focus 🍅 $lu
   if [[ $lu == $breaks_until_long ]]; then
-    echo -ne " 🔔 until: $lu/$breaks_until_long, lang_break: 0:0 \033[K\r"
-    for i in $(seq 1 $notify_audio_loop); do
-      if [[ $phone_vibrating == "0" ]]; then
-        termux-vibrate -f -d 500 &
-      fi
-      mpv "$HOME/.config/pomo/media/long_break.mp3" --really-quiet
-    done
-    for lbd in $(seq 0 $((long_break_duration - 1))); do
-      for ss in $(seq 0 59); do
-        sleep 1
-        echo -ne " 🎉 until: $lu/$breaks_until_long, long_break: $lbd:$ss \033[K\r"
-      done
-    done
+    timer $long_break_duration long_break 🎉 $lu
   else
-    echo -ne " 🔔 until: $lu/$breaks_until_long, break: 0:0 \033[K\r"
-    for i in $(seq 1 $notify_audio_loop); do
-      if [[ $phone_vibrating == "0" ]]; then
-        termux-vibrate -f -d 500 &
-      fi
-      mpv "$HOME/.config/pomo/media/break.mp3" --really-quiet
-    done
-    for bd in $(seq 0 $((break_duration - 1))); do
-      for ss in $(seq 0 59); do
-        sleep 1
-        echo -ne " 💤 until: $lu/$breaks_until_long, break: $bd:$ss \033[K\r"
-      done
-    done
+    timer $break_duration break 💤 $lu
   fi
 done
 
+echo "$(date +%Y%m%d%H%M):$focus_duration:$break_duration:$breaks_until_long:YES" >> $HOME/.pomo.log
 echo " 🎉 $breaks_until_long pomodoro completed!               "
+kill $EXIT_PID 2> /dev/null

@@ -3,4 +3,5 @@ break_duration=10
 long_break_duration=20
 breaks_until_long=3
 notify_audio_loop=2
-phone_vibrating=0
+# phone_vibrating=0
+# extend_command="ffplay bg-music.mp3"
